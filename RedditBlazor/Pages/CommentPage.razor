@@ -1,0 +1,141 @@
+﻿@page "/commentpage/{id}"
+
+@using RedditAPI.Model;
+@using RedditClientSide.Service;
+@inject RedditService service
+
+@using Microsoft.Extensions.Configuration
+@inject IConfiguration Configuration
+<button onclick="history.back()" type="button" class="btn btn-primary">HOME</button>
+    <div class="card">
+        <div class="card-body">
+            <h4 class="card-title">@mainPost.Title</h4>
+            <h6 class="card-subtitle mb-2 text-muted">
+                /@FullUserList.Where(u => u.UserId == mainPost.UserID).First().Name
+            </h6>
+            <small>@mainPost.PostTime.ToString("dd-MM/yyyy")</small>
+            <p class="card-text">
+                @mainPost.Body
+            </p>
+            <button @onclick="()=>PostVote(mainPost.PostId,LoginUser,true)" type="button" class="btn btn-success mb-2">Like</button>
+            <button @onclick="()=>PostVote(mainPost.PostId,LoginUser,false)" type="button" class="btn btn-danger mb-2">Dislike</button>
+            <h6 class="card-subtitle mb-2 text-muted">Likes: @mainPost.Votes</h6>
+        </div>
+    </div>
+
+<h2 class="mt-3">Indtast din brugernavn hvis du vil kommentere eller like noget.</h2>
+<div class="input-group mb-3">
+  <div class="input-group-prepend">
+    <span class="input-group-text" id="basic-addon1">@@</span>
+  </div>
+  <input @bind="LoginUser" type="text" class="form-control" placeholder="Username" aria-label="Username" aria-describedby="basic-addon1">
+</div>
+@if (NoUserName)
+{
+    <div class="alert alert-danger" role="alert">
+  Indtast et brugernavn din tumpe!
+</div>
+}
+
+<div class="input-group mb-3">
+  <div class="input-group-prepend">
+   
+ 
+  <input @bind="NewCommentBody" type="text" class="form-control mb-2" placeholder="Ny kommentar" aria-label="Username" aria-describedby="basic-addon1">
+  <button @onclick="()=>CreateComment(LoginUser,NewCommentBody,mainPost.PostId)"type="button" class="btn btn-danger mb-2">Post</button>
+</div>
+</div>
+@foreach (var comment in commentList)
+{
+    <div class="card">
+        <div class="card-body">
+            <h6 class="card-subtitle mb-2 text-muted">/@FullUserList.Where(u => u.UserId == comment.UserID).First().Name</h6>
+            <small>@comment.CommentTime.ToString("dd-MM/yyyy")</small>
+            <p class="card-text">
+                @comment.Body
+            </p>
+            <button @onclick="()=>CommentVote(comment.CommentId,LoginUser, true )" type="button" class="btn btn-success mb-2">Like</button>
+            <button @onclick="()=>CommentVote(comment.CommentId,LoginUser, false )" type="button" class="btn btn-danger mb-2">Dislike</button>
+            <h6 class="card-subtitle mb-2 text-muted">Likes: @comment.Votes</h6>
+        </div>
+    </div>
+}
+
+
+@code {
+
+    [Parameter]
+    public string Id { get; set; }
+    public int PostId { get { return int.Parse(Id); } }
+
+    public string LoginUser;
+    public string NewCommentBody;
+
+    public bool NoUserName = false;
+
+    public List<Comment> commentList = new List<Comment>();
+    public List<User> FullUserList = new List<User>();
+
+    public Post mainPost = new Post();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        FullUserList.Add(new User("Tester John"));
+        mainPost = await service.GetPost(PostId);
+        commentList = (await service.GetAllComments(PostId)).ToList();
+        FullUserList = (await service.GetAllUsers()).ToList();
+
+
+    }
+    public async void CommentVote(long id, string userName, bool like)
+    {
+        if (LoginUser != null)
+        {
+            bool temp = await service.CommentVote(new VoteDTO(id, userName, like));
+            NoUserName = false;
+            if(temp)
+            {
+                if(like){ commentList.Where(x => x.CommentId == id).First().Votes++;}
+                else if(!like){commentList.Where(x => x.CommentId == id).First().Votes--;}
+            }
+            StateHasChanged();
+        }
+        else
+        {
+            NoUserName = true;
+            StateHasChanged();
+        }
+    }
+    public async void PostVote(long id, string userName, bool like)
+    {
+        if (LoginUser != null)
+        {
+            bool temp = await service.PostVote(new VoteDTO(id, userName, like));
+            NoUserName = false;
+            if(temp)
+            {
+                if(like){ mainPost.Votes++;}
+                else if(!like){mainPost.Votes--;}
+            }
+            StateHasChanged();
+        }
+        else
+        {
+            NoUserName = true;
+            StateHasChanged();
+        }
+    }
+
+    public async void CreateComment(string userName, string body, long id)
+    {
+        CommentDTO tempData = new CommentDTO(userName, body, id);
+        Comment newComment = await service.CreateComment(tempData);
+        commentList = (await service.GetAllComments(PostId)).ToList();
+        FullUserList = (await service.GetAllUsers()).ToList();
+        NewCommentBody = "";
+        StateHasChanged();
+    }
+
+}
+

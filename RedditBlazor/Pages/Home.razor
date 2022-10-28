@@ -1,0 +1,95 @@
+﻿@page "/"
+
+@using RedditAPI.Model;
+@using RedditClientSide.Service;
+@inject RedditService service
+
+@using Microsoft.Extensions.Configuration
+@inject IConfiguration Configuration
+
+<h4>BAD-REDDIT >:)</h4>
+
+
+<div class="input-group mb-3">
+    <div class="input-group-prepend">
+        <span class="input-group-text" id="basic-addon1">Titel</span>
+    </div>
+        <input @bind="PostTitle" type="text" class="form-control" placeholder="Skriv en fangende titel" aria-label="Username" aria-describedby="basic-addon1">
+      
+   
+</div>
+
+<div class="input-group mb-3">
+  
+    <input @bind="PostBody" type="text" class="form-control" placeholder="Hvad har du på hjertet?" aria-label="Username" aria-describedby="basic-addon1">
+      
+   
+</div>
+
+
+<div class="input-group mb-3">
+    <div class="input-group-prepend">
+        <span class="input-group-text" id="basic-addon1">@@Brugernavn</span>
+    </div>
+    <input @bind="LoginUserName" type="text" class="form-control" placeholder="JohnDoe69" aria-label="Username" aria-describedby="basic-addon1">
+    <button @onclick="()=>CreatePost(LoginUserName,PostTitle,PostBody)" type="button" class="btn btn-danger mb-2">Post</button>
+
+</div>
+
+
+<div class="list-group">
+    @foreach (var post in FullPostList.Take(NumOfPosts))
+    {
+        
+        <a href="/commentpage/@post.PostId" class="list-group-item list-group-item-action flex-column align-items-start">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">@post.Title</h5>
+                <small>@post.PostTime.ToString("dd-MM/yyyy")</small>
+            </div>
+            <p class="mb-1 text-truncate" style="max-width:300px;">@post.Body</p>
+            <small class="text-muted">@FullUserList.Where(u => u.UserId == post.UserID).First().Name</small>
+        </a>
+    }
+</div>
+<button @onclick="()=>ShowMore()" type="button" class="btn btn-alert mt-3">Vis mere</button>
+
+@code {
+    public List<Post> FullPostList = new List<Post>();
+    public List<User> FullUserList = new List<User>();
+    public int NumOfPosts = 50;
+
+    public string LoginUserName = "";
+    public string PostTitle = "";
+    public string PostBody = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        FullPostList = (await service.GetAllPosts()).ToList();
+        FullUserList = (await service.GetAllUsers()).ToList();
+        FullPostList.Reverse();
+
+    }
+    public async Task<User> GetUser(long id)
+    {
+        return await service.GetUser(id);
+    }
+    public async void CreatePost(string userName, string title, string postBody )
+    {
+
+        Post temp = await service.CreatePost(new PostDTO(userName,title,postBody));
+        FullPostList = (await service.GetAllPosts()).ToList();
+        FullUserList = (await service.GetAllUsers()).ToList();
+        LoginUserName = "";
+        PostTitle = "";
+        PostBody = "";
+        FullPostList.Reverse();
+        StateHasChanged();
+    }
+
+    public void ShowMore()
+    {
+        NumOfPosts = NumOfPosts + 10;
+    }
+
+}
